@@ -1,0 +1,38 @@
+{
+  "name": "@jswf/redux-module",
+  "version": "0.0.1",
+  "description": "Make Redux operations modular",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npx tsc -b src",
+    "watch": "npx tsc -w -b src",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "react",
+    "rudex"
+  ],
+  "author": "SoraKumo",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^16.9.0",
+    "redux": "^4.0.4"
+  },
+  "devDependencies": {
+    "@types/react": "^16.9.3",
+    "@types/react-redux": "^7.1.4",
+    "@types/redux": "^3.6.0",
+    "typescript": "^3.6.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JavaScript-WindowFramework/jswf-redux-module.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JavaScript-WindowFramework/jswf-redux-module/issues"
+  },
+  "homepage": "https://ttis.croud.jp/"
+}
