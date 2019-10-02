@@ -1,6 +1,6 @@
 {
   "name": "@jswf/redux-module",
-  "version": "0.0.8",
+  "version": "0.1.1",
   "description": "Make Redux operations modular",
   "main": "dist/index.js",
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "keywords": [
     "react",
-    "rudex"
+    "redux"
   ],
   "author": "SoraKumo",
   "license": "MIT",

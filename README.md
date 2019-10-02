@@ -25,7 +25,7 @@ ReactDOM.render(
 );
 ```
 
-### 1.2 Creating a store module
+### 1.2 Creating a store module class
 
 When using TypeScript, the structure of module data can be specified
 defaultState can be omitted, but in that case undefined is returned when data is accepted.
@@ -72,7 +72,7 @@ function HooksApp() {
 
 ### 1.4 Reading and writing data with the Class component
 
-```tsx:index.tsx
+```tsx
 class _ClassApp extends Component {
   render() {
     const module = mapModule(this.props, TestModule);
@@ -99,7 +99,66 @@ class _ClassApp extends Component {
 const ClassApp = mapConnect(_ClassApp, TestModule);
 ```
 
-### 1.5 Sample
+### 1.5 Reference another class
+
+```ts
+export interface TestState2 {
+  text: string;
+}
+export class TestModule2 extends ReduxModule<TestState2> {
+  static includes = [TestModule]; //Declare the external class used here
+  static defaultState: TestState2 = {
+    text:"A"
+  };
+  getMessage() {
+    //Call external class with getModule
+    return this.getModule(TestModule).getState("msg");
+  }
+  setMessage(msg: string) {
+    this.getModule(TestModule).setState({ msg });
+  }
+  getCount() {
+    return this.getModule(TestModule).getState("count")!;
+  }
+  setCount(count: number) {
+    this.getModule(TestModule).setState({ count });
+  }
+  addText() {
+    return this.setState(this.getText()+"a","text")!;
+  }
+  getText() {
+    return this.getState("text")!;
+  }
+}
+```
+
+### 1.6 Write only attribute
+
+ If you use the ReduxModule inheritance class in the component without specifying it, side effects will occur whenever the data under class management is updated.
+
+ If it is used only for writing, useless processing will occur. In that case, it can be avoided by attaching the writeOnly attribute.
+
+- For Function components (Hooks)  
+Set the third argument of useModule to true
+
+```ts
+const testModule = useModule(TestModule,undefined,true);
+```
+
+- For Class component  
+Set the writeOnly attribute to true at the time of mapConnect
+
+```ts
+const ClassApp = mapConnect(_ClassApp, [{module:TestModule,writeOnly:true}]);
+```
+
+- For external reference  
+
+```ts
+static includes = [{module:TestModule,writeOnly:true}];
+```
+
+### 1.7 Sample
 
 ```tsx
 import React, { Component } from "react";

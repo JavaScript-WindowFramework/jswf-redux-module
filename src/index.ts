@@ -3,21 +3,19 @@ import { useDispatch, useSelector, connect } from "react-redux";
 import { Dispatch } from "redux";
 
 //対象オブジェクト選択用
-type Head<U> = U extends [any, ...any[]]
-  ? ((...args: U) => any) extends (head: infer H, ...args: any) => any
-    ? H
-    : never
-  : never;
-type Tail<U> = U extends [any, any, ...any[]]
-  ? ((...args: U) => any) extends (head: any, ...args: infer T) => any
+type Tail<U> = U extends [unknown, unknown, ...unknown[]]
+  ? ((...args: U) => unknown) extends (head: any, ...args: infer T) => unknown
     ? T
     : never
   : never;
-type Deeps<State, Paths extends any[]> = Head<Paths> extends keyof State
+type Deeps<
+  State,
+  Paths extends ReadonlyArray<unknown>
+> = Paths[0] extends keyof State
   ? {
-      0: State[Head<Paths>];
-      1: Deeps<State[Head<Paths>], Tail<Paths>>;
-    }[Tail<Paths> extends never ? 0 : 1]
+      0: State[Paths[0]];
+      1: Deeps<State[Paths[0]], Tail<Paths>>;
+    }[Paths[1] extends undefined ? 0 : 1]
   : never;
 
 //パラメータをオプション化
@@ -34,7 +32,8 @@ type moduleType<T> = {
       | undefined
       | {
           [key: string]: ReduxModule;
-        }
+        },
+    writeOnly: boolean
   ): T;
 };
 
@@ -64,34 +63,35 @@ const ActionName = "@CALLBACK";
 export function setStoreState<T = map>(
   dispatch: (action: Action) => void,
   name: string | string[],
-  params: AddOptionType<T>
+  params: AddOptionType<T>,
+  defaultTop?: unknown
 ) {
   function callback(state: map) {
-    if (name instanceof Array) {
-      const length = name.length;
-      const newState = { ...state };
-      let tempState = newState;
-      let i;
-      for (i = 0; i < length - 1; i++) {
-        const n = name[i];
-        if (typeof tempState[n] !== "object") {
-          const obj = {};
-          tempState[name[i]] = obj;
-          tempState = obj;
-        } else {
-          tempState[n] = { ...tempState[n] };
-          tempState = tempState[n] as map;
-        }
+    const names = name instanceof Array ? name : [name];
+
+    const length = names.length;
+    const newState = { ...state };
+    if (defaultTop !== undefined && newState[names[0]] === undefined)
+      newState[names[0]] = defaultTop;
+    console.log(newState);
+
+    let tempState = newState;
+    let i;
+    for (i = 0; i < length - 1; i++) {
+      const n = names[i];
+      if (typeof tempState[n] !== "object") {
+        const obj = {};
+        tempState[names[i]] = obj;
+        tempState = obj;
+      } else {
+        tempState[n] = { ...tempState[n] };
+        tempState = tempState[n] as map;
       }
-      if (typeof params === "object")
-        tempState[name[i]] = { ...tempState[name[i]], ...params };
-      else tempState[name[i]] = params;
-      return newState;
-    } else {
-      const newState = { ...state };
-      newState[name] = { ...newState[name], ...params };
-      return newState;
     }
+    if (typeof params === "object")
+      tempState[names[i]] = { ...tempState[names[i]], ...params };
+    else tempState[names[i]] = params;
+    return newState;
   }
 
   dispatch({
@@ -127,30 +127,36 @@ export class ReduxModule<State = { [key: string]: unknown }> {
   protected static defaultState?: unknown;
   public static includes?: (
     | typeof ReduxModule
-    | { module: typeof ReduxModule; prefix: string })[];
+    | { module: typeof ReduxModule; prefix?: string; writeOnly?: boolean })[];
   private dispatch: Dispatch;
   private store: unknown;
   private moduleName: string;
   private modules?: { [key: string]: ReduxModule };
+  private writeOnly: boolean;
+
   public constructor(
     dispatch: Dispatch,
     store: unknown,
     moduleName: string,
-    modules: undefined | { [key: string]: ReduxModule }
+    modules: undefined | { [key: string]: ReduxModule },
+    writeOnly: boolean
   ) {
     this.dispatch = dispatch;
     this.moduleName = moduleName;
     this.modules = modules;
-    if (store !== undefined) {
-      this.store = store;
-    } else {
-      //初期値設定
-      const defaultState = (this.constructor as Function & {
-        defaultState: State;
-      }).defaultState;
-      if (defaultState) {
-        const state = this.getState();
-        if (state === undefined) this.setState(defaultState);
+    this.writeOnly = writeOnly;
+    if (!this.writeOnly) {
+      if (store !== undefined) {
+        this.store = store;
+      } else {
+        //初期値設定
+        const defaultState = (this.constructor as Function & {
+          defaultState: State;
+        }).defaultState;
+        if (defaultState) {
+          const state = this.getState();
+          if (state === undefined) this.setState(defaultState);
+        }
       }
     }
   }
@@ -173,14 +179,7 @@ export class ReduxModule<State = { [key: string]: unknown }> {
    * @memberof ReduxModule
    */
   getModule<T extends ReduxModule, C extends typeof ReduxModule>(
-    module: {
-      new (
-        dispatch: Dispatch,
-        store: unknown,
-        prefix: string,
-        modules?: { [key: string]: ReduxModule }
-      ): T;
-    } & C,
+    module: moduleType<T> & C,
     prefix?: string
   ) {
     const moduleName: string = getStoreName(module, prefix);
@@ -210,6 +209,8 @@ export class ReduxModule<State = { [key: string]: unknown }> {
   public getState<K extends string[], T = State>(
     ...name: K
   ): Deeps<T, K> | T | undefined {
+    if (this.writeOnly) throw "This module is write only";
+
     //パラメータ処理
     let names: string[] = [];
     if (name instanceof Array) names = name as never;
@@ -234,12 +235,6 @@ export class ReduxModule<State = { [key: string]: unknown }> {
     return store[names[i]] as Deeps<T, K>;
   }
 
-  // TypeScript3.6では対応できないため保留
-  // public setState<K extends string[], T = State>(
-  //   params: AddOptionType<Deeps<T, K>>,
-  //   ...name: K
-  // ): void;
-
   /**
    *モジュールのStoreデータの設定
    *
@@ -249,8 +244,8 @@ export class ReduxModule<State = { [key: string]: unknown }> {
    * @memberof StoreModule
    */
   public setState<T = State>(params: AddOptionType<T>): void;
-  public setState<K extends string[], T = unknown>(
-    params: unknown,
+  public setState<K extends string[], T = State>(
+    params: AddOptionType<Deeps<T, K>>,
     ...name: K
   ): void;
   public setState<K extends string[], T = State>(
@@ -261,7 +256,11 @@ export class ReduxModule<State = { [key: string]: unknown }> {
     const names = [storeName];
     if (typeof name === "string") names.push(name);
     else if (name instanceof Array) names.push(...name);
-    setStoreState(this.dispatch, names, params as never);
+
+    const defaultState = (this.constructor as Function & {
+      defaultState: State;
+    }).defaultState;
+    setStoreState(this.dispatch, names, params as never,defaultState);
   }
 }
 //クラス識別用マップ
@@ -299,15 +298,9 @@ export function getStoreName<T extends ReduxModule>(
  * @returns {T}
  */
 export function useModule<T extends ReduxModule, C extends typeof ReduxModule>(
-  module: {
-    new (
-      dispatch: Dispatch,
-      store: unknown,
-      prefix: string,
-      modules: undefined | { [key: string]: ReduxModule }
-    ): T;
-  } & C,
-  prefix?: string
+  module: moduleType<T> & C,
+  prefix?: string,
+  writeOnly?: boolean
 ): T {
   const includes = module.includes;
   let modules: { [key: string]: ReduxModule } = {};
@@ -317,18 +310,19 @@ export function useModule<T extends ReduxModule, C extends typeof ReduxModule>(
       else
         modules[getStoreName(inc.module, inc.prefix)] = useModule(
           inc.module,
-          inc.prefix
+          inc.prefix,
+          inc.writeOnly
         );
     });
   }
 
   const moduleName = getStoreName(module, prefix);
-  const store = useSelector(store => (store as map)[moduleName]) as
-    | map
-    | undefined;
+  const store = writeOnly
+    ? undefined
+    : (useSelector(store => (store as map)[moduleName]) as map | undefined);
   const dispatch = useDispatch();
   return useMemo(() => {
-    return new module(dispatch, store, moduleName, modules);
+    return new module(dispatch, store, moduleName, modules, !!writeOnly);
   }, [store, ...Object.values(modules)]);
 }
 /**
@@ -344,10 +338,7 @@ export function useModule<T extends ReduxModule, C extends typeof ReduxModule>(
 export function mapModule<T extends ReduxModule>(
   props: unknown,
   module: moduleType<T>,
-  prefix?: string,
-  modules?: {
-    [key: string]: ReduxModule;
-  }
+  prefix?: string
 ) {
   const moduleName = getStoreName(module, prefix);
   return (props as { modules: map }).modules[moduleName] as T;
@@ -369,8 +360,11 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
   component: C,
   module:
     | moduleType<T>
-    | { module: moduleType<T>; prefix?: string }
-    | (moduleType<T> | { module: moduleType<T>; prefix?: string })[]
+    | { module: moduleType<T>; prefix?: string; writeOnly?: boolean }
+    | ((
+        | moduleType<any>
+        | { module: moduleType<any>; prefix?: string; writeOnly?: boolean }
+      )[])
 ) {
   const modules = module instanceof Array ? module : [module];
 
@@ -383,18 +377,22 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
         | {
             module: typeof ReduxModule;
             prefix?: string | undefined;
+            writeOnly?: boolean;
           }
     ) {
       let module: typeof ReduxModule;
       let prefix: string | undefined;
+      let writeOnly: boolean = false;
       if (src instanceof Function) {
         module = src;
       } else {
         module = src.module;
         prefix = src.prefix;
+        writeOnly = !!src.writeOnly;
       }
       const moduleName = getStoreName(module, prefix);
-      newState[moduleName] = state[moduleName];
+      //Store読み込みの判断
+      if (!writeOnly) newState[moduleName] = state[moduleName];
       if (module.includes) {
         module.includes.forEach(src => addStoreState(src));
       }
@@ -418,14 +416,17 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
         | {
             module: typeof ReduxModule;
             prefix?: string | undefined;
+            writeOnly?: boolean;
           }
     ) {
       let module, prefix;
+      let writeOnly: boolean = false;
       if (src instanceof Function) {
         module = src;
       } else {
         module = src.module;
         prefix = src.prefix;
+        writeOnly = !!src.writeOnly;
       }
       const modules = {};
       if (module.includes) {
@@ -434,7 +435,13 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
         });
       }
       const moduleName = getStoreName(module, prefix);
-      const inst = new module(dispatch, store[moduleName], moduleName, modules);
+      const inst = new module(
+        dispatch,
+        store[moduleName],
+        moduleName,
+        modules,
+        writeOnly
+      );
       (state as map)[moduleName] = inst;
       return inst;
     }
