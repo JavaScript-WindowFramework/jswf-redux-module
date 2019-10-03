@@ -3,25 +3,22 @@ import { useDispatch, useSelector, connect } from "react-redux";
 import { Dispatch } from "redux";
 
 //対象オブジェクト選択用
-type Tail<U> = U extends [unknown, unknown, ...unknown[]]
-  ? ((...args: U) => unknown) extends (head: any, ...args: infer T) => unknown
+type Next<U> = U extends readonly [string, ...string[]]
+  ? ((...args: U) => void) extends (top: any, ...args: infer T) => void
     ? T
     : never
   : never;
+
 type Deeps<
   State,
-  Paths extends ReadonlyArray<unknown>
+  Paths extends readonly string[]
 > = Paths[0] extends keyof State
   ? {
       0: State[Paths[0]];
-      1: Deeps<State[Paths[0]], Tail<Paths>>;
+      1: Deeps<State[Paths[0]], Next<Paths>>;
     }[Paths[1] extends undefined ? 0 : 1]
   : never;
 
-//パラメータをオプション化
-type AddOptionType<T> = {
-  [M in keyof T]+?: T[M];
-};
 type map = { [key: string]: unknown };
 type moduleType<T> = {
   new (
@@ -58,12 +55,12 @@ const ActionName = "@CALLBACK";
  * @template T
  * @param {(action: Action) => void} dispatch
  * @param {(string | string[])} name Storeのオブジェクト名(階層指定可能)
- * @param {AddOptionType<T>} params パラメータ
+ * @param {Partial<T>} params パラメータ
  */
 export function setStoreState<T = map>(
   dispatch: (action: Action) => void,
   name: string | string[],
-  params: AddOptionType<T>,
+  params: Partial<T>,
   defaultTop?: unknown
 ) {
   function callback(state: map) {
@@ -73,7 +70,6 @@ export function setStoreState<T = map>(
     const newState = { ...state };
     if (defaultTop !== undefined && newState[names[0]] === undefined)
       newState[names[0]] = defaultTop;
-    console.log(newState);
 
     let tempState = newState;
     let i;
@@ -240,16 +236,16 @@ export class ReduxModule<State = { [key: string]: unknown }> {
    *
    * @template T
    * @param {(string | string[])} name
-   * @param {AddOptionType<T>} params
+   * @param {Partial<T>} params
    * @memberof StoreModule
    */
-  public setState<T = State>(params: AddOptionType<T>): void;
+  public setState<T = State>(params: Partial<T>): void;
   public setState<K extends string[], T = State>(
-    params: AddOptionType<Deeps<T, K>>,
+    params: Partial<Deeps<T, K>>,
     ...name: K
   ): void;
   public setState<K extends string[], T = State>(
-    params: AddOptionType<Deeps<T, K>>,
+    params: Partial<Deeps<T, K>>,
     ...name: K
   ): void {
     const storeName = this.moduleName;
