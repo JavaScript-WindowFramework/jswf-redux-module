@@ -75,16 +75,20 @@ export function setStoreState<T = map>(
     let i;
     for (i = 0; i < length - 1; i++) {
       const n = names[i];
-      if (typeof tempState[n] !== "object") {
+      const state = tempState[n];
+      if (typeof state !== "object") {
         const obj = {};
         tempState[names[i]] = obj;
         tempState = obj;
+      } else if (state instanceof Array) {
+        tempState[n] = [...state];
+        tempState = tempState[n] as map;
       } else {
-        tempState[n] = { ...tempState[n] };
+        tempState[n] = { ...state };
         tempState = tempState[n] as map;
       }
     }
-    if (typeof params === "object")
+    if (typeof params === "object" && !(params instanceof Array))
       tempState[names[i]] = { ...tempState[names[i]], ...params };
     else tempState[names[i]] = params;
     return newState;
@@ -256,7 +260,7 @@ export class ReduxModule<State = { [key: string]: unknown }> {
     const defaultState = (this.constructor as Function & {
       defaultState: State;
     }).defaultState;
-    setStoreState(this.dispatch, names, params as never,defaultState);
+    setStoreState(this.dispatch, names, params as never, defaultState);
   }
 }
 //クラス識別用マップ
