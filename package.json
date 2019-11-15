@@ -1,11 +1,11 @@
 {
   "name": "@jswf/redux-module",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "description": "Make Redux operations modular",
   "main": "dist/index.js",
   "scripts": {
-    "build": "npx tsc -b src",
-    "watch": "npx tsc -b src -w",
+    "build": "tsc -b src",
+    "watch": "tsc -b src -w",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "publishConfig": {
@@ -22,8 +22,7 @@
     "redux": "^4.0.4",
     "@types/react": "^16.9.11",
     "@types/react-redux": "^7.1.5",
-    "@types/redux": "^3.6.0",
-    "typescript": "^3.6.4"
+    "typescript": "^3.7.2"
   },
   "repository": {
     "type": "git",

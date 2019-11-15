@@ -1,6 +1,6 @@
 import { useMemo, Component } from "react";
 import { useDispatch, useSelector, connect } from "react-redux";
-import { Dispatch } from "redux";
+import { AnyAction, Dispatch } from "redux";
 
 //対象オブジェクト選択用
 type Next<U> = U extends readonly [string, ...string[]]
@@ -19,7 +19,7 @@ type Deeps<
     }[Paths[1] extends undefined ? 0 : 1]
   : never;
 
-type map = { [key: string]: unknown };
+type map = { [key: string]: unknown | object };
 type moduleType<T> = {
   new (
     dispatch: Dispatch,
@@ -39,8 +39,7 @@ type moduleType<T> = {
  *
  * @interface Action
  */
-interface Action {
-  type: string;
+interface Action extends AnyAction {
   payload: {
     callback: (state: map) => map;
   };
@@ -88,8 +87,12 @@ export function setStoreState<T = map>(
         tempState = tempState[n] as map;
       }
     }
-    if (typeof params === "object" && !(params instanceof Array))
-      tempState[names[i]] = { ...tempState[names[i]], ...params };
+    if (
+      typeof params === "object" &&
+      !(params instanceof Array) &&
+      typeof tempState[names[i]] === "object"
+    )
+      tempState[names[i]] = { ...(tempState[names[i]] as object), ...params };
     else tempState[names[i]] = params;
     return newState;
   }
@@ -110,7 +113,7 @@ export function setStoreState<T = map>(
  * @param {Action} action
  * @returns
  */
-export function ModuleReducer(state = {}, action: Action) {
+export function ModuleReducer(state = {}, action: AnyAction) {
   if (action.type === ActionName)
     return action.payload.callback(state as never);
   return state;
@@ -127,7 +130,8 @@ export class ReduxModule<State = { [key: string]: unknown }> {
   protected static defaultState?: unknown;
   public static includes?: (
     | typeof ReduxModule
-    | { module: typeof ReduxModule; prefix?: string; writeOnly?: boolean })[];
+    | { module: typeof ReduxModule; prefix?: string; writeOnly?: boolean }
+  )[];
   private dispatch: Dispatch;
   private store: unknown;
   private moduleName: string;
@@ -321,9 +325,7 @@ export function useModule<T extends ReduxModule, C extends typeof ReduxModule>(
     ? undefined
     : (useSelector(store => (store as map)[moduleName]) as map | undefined);
   const dispatch = useDispatch();
-  return useMemo(() => {
-    return new module(dispatch, store, moduleName, modules, !!writeOnly);
-  }, [store, ...Object.values(modules)]);
+  return new module(dispatch, store, moduleName, modules, !!writeOnly);
 }
 /**
  * モジュールを取得(Classコンポーネント用)
@@ -361,10 +363,10 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
   module:
     | moduleType<T>
     | { module: moduleType<T>; prefix?: string; writeOnly?: boolean }
-    | ((
+    | (
         | moduleType<any>
         | { module: moduleType<any>; prefix?: string; writeOnly?: boolean }
-      )[])
+      )[]
 ) {
   const modules = module instanceof Array ? module : [module];
 
@@ -407,7 +409,7 @@ export function mapConnect<T extends ReduxModule, C extends typeof Component>(
   function mapMargeToProps(
     store: map,
     { dispatch }: { dispatch: Dispatch },
-    props: unknown
+    props: object
   ) {
     function addStreModule(
       state: map,
