@@ -1,6 +1,6 @@
 {
   "name": "@jswf/redux-module",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Make Redux operations modular",
   "main": "dist/index.js",
   "scripts": {
@@ -17,12 +17,12 @@
   ],
   "author": "SoraKumo",
   "license": "MIT",
-  "dependencies": {
-    "react": "^16.11.0",
-    "redux": "^4.0.4",
-    "@types/react": "^16.9.11",
-    "@types/react-redux": "^7.1.5",
-    "typescript": "^3.7.2"
+  "devDependencies": {
+    "@types/react": "^16.9.49",
+    "@types/react-redux": "^7.1.9",
+    "react": "^16.13.1",
+    "redux": "^4.0.5",
+    "typescript": "^4.0.3"
   },
   "repository": {
     "type": "git",
